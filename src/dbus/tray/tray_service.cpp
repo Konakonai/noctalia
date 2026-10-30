@@ -1913,7 +1913,7 @@ void TrayService::resolveItemOwner(const std::string& itemId, const std::string&
 bool TrayService::isSignalFromItemOwner(const std::string& itemId, sdbus::IProxy& proxy) const {
   const auto ownerIt = m_itemOwners.find(itemId);
   if (ownerIt == m_itemOwners.end()) {
-    // Owner lookup is still in flight; refreshing an extra time is harmless.
+    // Owner unknown (lookup pending or failed): accept the signal; an extra refresh is harmless.
     return true;
   }
   const char* sender = proxy.getCurrentlyProcessedMessage().getSender();
