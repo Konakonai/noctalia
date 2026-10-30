@@ -1286,10 +1286,20 @@ namespace {
     std::function<void()> onComplete;
   };
 
-  bool ssidFromSettings(const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg, std::string& out) {
+  // SSID of a client Wi-Fi profile. Access-point (hotspot) profiles return false: their SSID is
+  // not a network this device can join, so they are neither listed as saved nor forgotten.
+  bool
+  clientSsidFromSettings(const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg, std::string& out) {
     auto wifiIt = cfg.find("802-11-wireless");
     if (wifiIt == cfg.end())
       return false;
+    if (auto modeIt = wifiIt->second.find("mode"); modeIt != wifiIt->second.end()) {
+      try {
+        if (modeIt->second.get<std::string>() == kNmWifiModeAp)
+          return false;
+      } catch (const sdbus::Error&) {
+      }
+    }
     auto ssidIt = wifiIt->second.find("ssid");
     if (ssidIt == wifiIt->second.end())
       return false;
@@ -1382,7 +1392,7 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
                   return;
                 }
                 std::string foundSsid;
-                if (!ssidFromSettings(cfg, foundSsid) || foundSsid != op->ssid) {
+                if (!clientSsidFromSettings(cfg, foundSsid) || foundSsid != op->ssid) {
                   maybeFinishForget(op);
                   return;
                 }
@@ -1531,29 +1541,8 @@ void NetworkManagerService::refreshSavedConnections(const std::function<void()>&
                                     }
                                   }
 
-                                  auto wifiIt = cfg.find("802-11-wireless");
-                                  bool hotspotProfile = false;
-                                  if (wifiIt != cfg.end()) {
-                                    if (auto modeIt = wifiIt->second.find("mode"); modeIt != wifiIt->second.end()) {
-                                      try {
-                                        hotspotProfile = modeIt->second.get<std::string>() == kNmWifiModeAp;
-                                      } catch (const sdbus::Error&) {
-                                      }
-                                    }
-                                  }
-                                  // A hotspot profile's SSID is not a network this device can join.
-                                  if (wifiIt != cfg.end() && !hotspotProfile) {
-                                    auto ssidIt = wifiIt->second.find("ssid");
-                                    if (ssidIt != wifiIt->second.end()) {
-                                      try {
-                                        const auto bytes = ssidIt->second.get<std::vector<std::uint8_t>>();
-                                        std::string ssid(bytes.begin(), bytes.end());
-                                        if (!ssid.empty()) {
-                                          savedState->ssids.push_back(std::move(ssid));
-                                        }
-                                      } catch (const sdbus::Error&) {
-                                      }
-                                    }
+                                  if (std::string ssid; clientSsidFromSettings(cfg, ssid) && !ssid.empty()) {
+                                    savedState->ssids.push_back(std::move(ssid));
                                   }
                                 }
                                 if (--savedState->pending == 0) {
