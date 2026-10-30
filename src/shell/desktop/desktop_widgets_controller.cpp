@@ -99,7 +99,7 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   m_host->initialize(services.widgets);
   m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::desktop());
   m_editor->initialize(services.widgets);
-  m_editor->setExitRequestedCallback([this]() { exitEdit(); });
+  m_editor->setExitRequestedCallback([this] { exitEdit(); });
   loadSnapshotFromConfig();
   const bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   m_initialized = true;
@@ -112,7 +112,7 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   applyVisibility();
 
   if (m_config != nullptr) {
-    m_config->addReloadCallback([this]() { handleConfigReload(); }, "desktop-widgets");
+    m_config->addReloadCallback([this] { handleConfigReload(); }, "desktop-widgets");
   }
 }
 
@@ -282,6 +282,18 @@ void DesktopWidgetsController::onSecondTick() {
   } else if (m_host != nullptr) {
     m_host->onSecondTick();
   }
+}
+
+bool DesktopWidgetsController::wantsSecondTicks() const {
+  if (!m_initialized) {
+    return false;
+  }
+  // The editor owns the surfaces while it is open, and it mirrors the live
+  // widget values, so keep second precision for its duration.
+  if (isEditing()) {
+    return true;
+  }
+  return m_host != nullptr && m_host->wantsSecondTicks();
 }
 
 void DesktopWidgetsController::requestUpdate() {

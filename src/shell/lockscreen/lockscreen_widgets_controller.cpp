@@ -108,13 +108,13 @@ void LockscreenWidgetsController::initialize(const LockscreenWidgetsControllerSe
   m_host->initialize(services.widgets);
   m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::lockscreen());
   m_editor->initialize(services.widgets);
-  m_editor->setExitRequestedCallback([this]() { exitEdit(); });
+  m_editor->setExitRequestedCallback([this] { exitEdit(); });
   loadSnapshotFromConfig();
   m_initialized = true;
   applyVisibility();
 
   if (m_config != nullptr) {
-    m_config->addReloadCallback([this]() { handleConfigReload(); }, "lockscreen-widgets");
+    m_config->addReloadCallback([this] { handleConfigReload(); }, "lockscreen-widgets");
   }
 }
 
@@ -169,6 +169,16 @@ void LockscreenWidgetsController::onSecondTick() {
   } else if (m_host != nullptr) {
     m_host->onSecondTick();
   }
+}
+
+bool LockscreenWidgetsController::wantsSecondTicks() const {
+  if (!m_initialized) {
+    return false;
+  }
+  if (isEditing()) {
+    return true;
+  }
+  return m_host != nullptr && m_host->wantsSecondTicks();
 }
 
 void LockscreenWidgetsController::requestLayout() {
